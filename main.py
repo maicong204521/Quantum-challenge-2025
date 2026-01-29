@@ -49,12 +49,20 @@ def train_pk():
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.LR)
 
+    best_loss = float("inf")   # 
+    best_epoch = -1
+
     for epoch in range(1, config.EPOCHS_PK + 1):
         loss = train_epoch(model, loader, optimizer, config.DEVICE)
         print(f"[PK] Epoch {epoch:03d} | Loss: {loss:.6f}")
-
-    torch.save(model.state_dict(), "pk_model.pt")
-    print("✓ PK model saved to pk_model.pt")
+        if loss < best_loss:
+            best_loss = loss
+            best_epoch = epoch
+            torch.save(model.state_dict(), "pk_model.pt")
+            print(f"  Best PK model saved at epoch {epoch} (loss={best_loss:.6f})")
+    print("\n✓ Training finished.")
+    print(f"✓ Best PD model: epoch {best_epoch}, loss={best_loss:.6f}")
+    print("✓ File saved as pd_model.pt")
 
     return model
 
@@ -120,6 +128,26 @@ def evaluate_pk_rmse(pk_model):
 # ======================================================
 # Step 3: Train PD model
 # ======================================================
+# def train_pd():
+#     print("=== Training PD-LSTM ===")
+
+#     dataset = PKPDDataset("data/QIC2025-EstDat_with_PK.csv", mode="PD")
+#     loader = DataLoader(dataset, batch_size=1, shuffle=True)
+
+#     model = PD_LSTM(
+#         input_dim=config.PD_INPUT_DIM,
+#         hidden_dim=config.HIDDEN_DIM
+#     ).to(config.DEVICE)
+
+#     optimizer = torch.optim.Adam(model.parameters(), lr=config.LR)
+
+#     for epoch in range(1, config.EPOCHS_PD + 1):
+#         loss = train_epoch(model, loader, optimizer, config.DEVICE)
+#         print(f"[PD] Epoch {epoch:03d} | Loss: {loss:.6f}")
+
+#     torch.save(model.state_dict(), "pd_model.pt")
+#     print("✓ PD model saved to pd_model.pt")
+#     return model
 def train_pd():
     print("=== Training PD-LSTM ===")
 
@@ -133,12 +161,24 @@ def train_pd():
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.LR)
 
+    best_loss = float("inf")   # 
+    best_epoch = -1
+
     for epoch in range(1, config.EPOCHS_PD + 1):
         loss = train_epoch(model, loader, optimizer, config.DEVICE)
         print(f"[PD] Epoch {epoch:03d} | Loss: {loss:.6f}")
 
-    torch.save(model.state_dict(), "pd_model.pt")
-    print("✓ PD model saved to pd_model.pt")
+        # ⭐ SAVE BEST MODEL
+        if loss < best_loss:
+            best_loss = loss
+            best_epoch = epoch
+            torch.save(model.state_dict(), "pd_model.pt")
+            print(f"  Best PD model saved at epoch {epoch} (loss={best_loss:.6f})")
+
+    print("\n✓ Training finished.")
+    print(f"✓ Best PD model: epoch {best_epoch}, loss={best_loss:.6f}")
+    print("✓ File saved as pd_model.pt")
+
     return model
 
 def evaluate_pd_rmse(pd_model):
