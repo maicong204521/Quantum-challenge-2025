@@ -21,7 +21,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BIOMARKER_THRESHOLD = 3.3  # ng/mL
 
 DAILY_TAU_H = 24
-WEEKLY_TAU_H = DAILY_TAU_H # 168
+WEEKLY_TAU_H = DAILY_TAU_H *7  # 168
 
 DAILY_STEP_MG = 0.5 
 WEEKLY_STEP_MG = 5
@@ -296,10 +296,31 @@ def find_min_weekly_dose_existing_population(
 
     return None, None
 
+def apply_bw_shift(
+    df: pd.DataFrame,
+    bw_min: float = 70.0,
+    bw_max: float = 140.0,
+    seed: int = 42
+):
+    """
+    Replace body weight per subject with a new value
+    sampled uniformly from [bw_min, bw_max].
+    """
+    rng = np.random.default_rng(seed)
+    df_new = df.copy()
+
+    for sid in df_new["ID"].unique():
+        new_bw = rng.uniform(bw_min, bw_max)
+        df_new.loc[df_new["ID"] == sid, "BW"] = new_bw
+
+    return df_new
+
 
 # ============================================================
 # MAIN TASKS
 # ============================================================
+
+
 def run_all_tasks():
 
     max_dose_data = float(pd.to_numeric(df["DOSE"], errors="coerce").max())
@@ -345,58 +366,97 @@ def run_all_tasks():
         dose_max=weekly_max
     )
 
+    print("\n================ TASK 3 =================")
+    print("Body-weight shifted to 70–140 kg, target = 90%")
+
+    # ----- Apply BW shift -----
+    df_bw_shift = apply_bw_shift(
+        df,
+        bw_min=70.0,
+        bw_max=140.0,
+        seed=2025
+    )
+
+    # ----- Once-daily -----
+    print("\n--- Once-daily dosing ---")
+    d_daily_bw_90, r_daily_bw_90 = find_min_dose_existing_population(
+        df_use=df_bw_shift,
+        tau_h=DAILY_TAU_H,
+        n_cycles=N_CYCLES_DAILY,
+        dt_grid_h=DT_GRID_H,
+        target_prob=0.90,
+        dose_step=DAILY_STEP_MG,
+        dose_min=DAILY_STEP_MG,
+        dose_max=daily_max
+    )
+
+    # ----- Once-weekly -----
+    print("\n--- Once-weekly dosing ---")
+    d_weekly_bw_90, r_weekly_bw_90 = find_min_weekly_dose_existing_population(
+        df_use=df_bw_shift,
+        n_cycles=N_CYCLES_WEEKLY,
+        target_prob=0.90,
+        dose_step=WEEKLY_STEP_MG,
+        dose_min=WEEKLY_STEP_MG,
+        dose_max=weekly_max
+    )
+
+    print("\n--- Task 3 results ---")
+    print(f"Daily (BW 70–140 kg, 90%)  : {d_daily_bw_90} mg")
+    print(f"Weekly (BW 70–140 kg, 90%): {d_weekly_bw_90} mg")
+
     
 
-    # print("\n================ TASK 4 =================")
-    # print("No COMED allowed (COMED = 0), target = 90%")
+    print("\n================ TASK 4 =================")
+    print("No COMED allowed (COMED = 0), target = 90%")
 
-    # df_nocomed = df.copy()
-    # df_nocomed["COMED"] = 0.0
+    df_nocomed = df.copy()
+    df_nocomed["COMED"] = 0.0
 
-    # d_daily_nocomed_90, _ = find_min_dose_existing_population(
-    #     df_nocomed,
-    #     DAILY_TAU_H, N_CYCLES_DAILY, DT_GRID_H,
-    #     target_prob=0.90,
-    #     dose_step=DAILY_STEP_MG,
-    #     dose_min=DAILY_STEP_MG,
-    #     dose_max=daily_max
-    # )
+    d_daily_nocomed_90, _ = find_min_dose_existing_population(
+        df_nocomed,
+        DAILY_TAU_H, N_CYCLES_DAILY, DT_GRID_H,
+        target_prob=0.90,
+        dose_step=DAILY_STEP_MG,
+        dose_min=DAILY_STEP_MG,
+        dose_max=daily_max
+    )
 
-    # d_weekly_nocomed_90, _ = find_min_dose_existing_population(
-    #     df_nocomed,
-    #     WEEKLY_TAU_H, N_CYCLES_WEEKLY, DT_GRID_H,
-    #     target_prob=0.90,
-    #     dose_step=WEEKLY_STEP_MG,
-    #     dose_min=WEEKLY_STEP_MG,
-    #     dose_max=weekly_max
-    # )
+    d_weekly_nocomed_90, _ = find_min_dose_existing_population(
+        df_nocomed,
+        WEEKLY_TAU_H, N_CYCLES_WEEKLY, DT_GRID_H,
+        target_prob=0.90,
+        dose_step=WEEKLY_STEP_MG,
+        dose_min=WEEKLY_STEP_MG,
+        dose_max=weekly_max
+    )
 
-    # print("\n================ TASK 5 =================")
-    # print("Target relaxed to 75%")
+    print("\n================ TASK 5 =================")
+    print("Target relaxed to 75%")
 
-    # d_daily_75, _ = find_min_dose_existing_population(
-    #     df,
-    #     DAILY_TAU_H, N_CYCLES_DAILY, DT_GRID_H,
-    #     target_prob=0.75,
-    #     dose_step=DAILY_STEP_MG,
-    #     dose_min=DAILY_STEP_MG,
-    #     dose_max=daily_max
-    # )
+    d_daily_75, _ = find_min_dose_existing_population(
+        df,
+        DAILY_TAU_H, N_CYCLES_DAILY, DT_GRID_H,
+        target_prob=0.75,
+        dose_step=DAILY_STEP_MG,
+        dose_min=DAILY_STEP_MG,
+        dose_max=daily_max
+    )
 
-    # d_weekly_75, _ = find_min_dose_existing_population(
-    #     df,
-    #     WEEKLY_TAU_H, N_CYCLES_WEEKLY, DT_GRID_H,
-    #     target_prob=0.75,
-    #     dose_step=WEEKLY_STEP_MG,
-    #     dose_min=WEEKLY_STEP_MG,
-    #     dose_max=weekly_max
-    # )
+    d_weekly_75, _ = find_min_dose_existing_population(
+        df,
+        WEEKLY_TAU_H, N_CYCLES_WEEKLY, DT_GRID_H,
+        target_prob=0.75,
+        dose_step=WEEKLY_STEP_MG,
+        dose_min=WEEKLY_STEP_MG,
+        dose_max=weekly_max
+    )
 
     print("\n================ SUMMARY =================")
     print(f"Daily 90%  : {d_daily_90} mg")
     print(f"Weekly 90% : {d_weekly_90} mg")
-    # print(f"Daily 75%  : {d_daily_75} mg")
-    # print(f"Weekly 75% : {d_weekly_75} mg")
+    print(f"Daily 75%  : {d_daily_75} mg")
+    print(f"Weekly 75% : {d_weekly_75} mg")
 
     bio = simulate_subject_weekly(df, 100.0, n_cycles=8)
     print(bio.min(), bio.max())

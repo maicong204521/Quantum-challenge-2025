@@ -1,7 +1,11 @@
 import torch
 import pandas as pd
 import matplotlib.pyplot as plt
-
+plt.rcParams.update({
+    "text.usetex": False,
+    "font.family": "serif",
+    "mathtext.fontset": "cm",  # 'cm' = Computer Modern (the LaTeX font)
+})
 import config
 from models import PK_LSTM, PD_LSTM
 def plot_subject(
@@ -54,7 +58,7 @@ def plot_subject(
         model.load_state_dict(torch.load(model_path, map_location="cpu"))
 
         mask = (sdf["DVID"] == 2) & (sdf["MDV"] == 0)
-        ylabel = "Drug Effect (PD)"
+        ylabel = "PD Value"
 
     model.eval()
 
@@ -65,12 +69,19 @@ def plot_subject(
     # Plot
     # ===============================
     plt.figure(figsize=(7, 4))
+    
+    ax = plt.gca()
+    ax.spines["top"].set_linewidth(0.2)
+    ax.spines["right"].set_linewidth(0.2)
+
+    ax.spines["left"].set_linewidth(0.2)
+    ax.spines["bottom"].set_linewidth(0.2)
 
     plt.plot(
         sdf["TIME"][mask],
         sdf["DV"][mask],
         "o-",
-        label="Actual",
+        label="Actual PD",
         markersize=6, linewidth=2,
                    alpha=0.7, color='blue'
     )
@@ -79,28 +90,28 @@ def plot_subject(
         sdf["TIME"][mask],
         pred[mask],
         "s-",
-        label="Predicted",
+        label="Predicted PD",
         markersize=6, linewidth=2,
                    alpha=0.7,
         color = 'orange'
     )
 
     title = (
-        f"({mode}) ID: {subject_id} | "
-        f"BW: {sdf['BW'].iloc[0]}"
+        f"Patient {subject_id} - PD "
     )
 
     plt.title(title)
     plt.xlabel("Time (hours)")
     plt.ylabel(ylabel)
     plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
+    plt.grid(True, alpha = 0.3)
+    #plt.tight_layout()
+    plt.savefig(f"subject_{subject_id}_{mode}.svg", format="svg")
     plt.show()
     
 plot_subject(
     csv_path="data/QIC2025-EstDat_with_PK.csv",
     model_path="pd_model_best.pt",
-    subject_id=13,
+    subject_id=9,
     mode="PD"
 )
